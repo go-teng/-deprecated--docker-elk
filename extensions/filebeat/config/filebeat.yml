@@ -7,6 +7,11 @@ filebeat.config:
     path: ${path.config}/modules.d/*.yml
     reload.enabled: false
 
+## vom C:\Program Files\Filebeat kopiert
+filebeat.inputs:
+  paths:
+    - /mnt/testing-logs-input/*.log
+
 filebeat.autodiscover:
   providers:
     # The Docker autodiscover provider automatically retrieves logs from Docker
