@@ -1,6 +1,5 @@
 version: '3.7'
 ## =========================== Dokumentationen ===========================
-# Logging Drivers in Docker konfigurieren:  https://docs.docker.com/config/containers/logging/configure/
 
 services:
 
@@ -37,15 +36,18 @@ services:
     volumes:
       - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,z
       - elasticsearch:/usr/share/elasticsearch/data:z
+      - ./testing-logs-input:/mnt/testing-logs-input:ro,Z
     ports:
       - "9200:9200" # elasticsearch HTTP
       - "9300:9300" # elasticsearch TCP transport
     environment:
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      cluster.name: gaiks-cluster
+      xpack.license.self_generated.type: basic
+      ES_JAVA_OPTS: -Xms512m -Xmx512m # memory of 512 MB
       # Bootstrap password.
       # Used to initialize the keystore during the initial startup of
       # Elasticsearch. Ignored on subsequent runs.
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       # Use single node discovery in order to disable production mode and avoid bootstrap checks.
       # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
@@ -60,13 +62,14 @@ services:
     volumes:
       - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
+      - ./testing-logs-input:/mnt/testing-logs-input:ro,Z
     ports:
       - "5044:5044" # logstash beats input
       - "50000:50000/tcp" # Logstash TCP input
-      - "50000:50000/udp" # 
+      - "50000:50000/udp" # Logstash UDP input
       - "9600:9600" # logstash monitoring API
     environment:
-      LS_JAVA_OPTS: -Xms256m -Xmx256m
+      LS_JAVA_OPTS: -Xms256m -Xmx256m # memory of 256 MB
       LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
     networks:
       - elk
@@ -80,10 +83,12 @@ services:
         ELASTIC_VERSION: ${ELASTIC_VERSION}
     volumes:
       - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
+      - ./testing-logs-input:/mnt/testing-logs-input:ro,Z
     ports:
       - "5601:5601"
     environment:
       KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-}
+      SERVER_NAME: kibana.gto.de
     networks:
       - elk
     depends_on:
@@ -96,45 +101,6 @@ services:
     depends_on:
       - elasticsearch
 
-
-## =========================== 1. Angepasste config innerhalb docker-compose ===========================
-  filebeats:
-    build:
-      context: extensions/filebeat/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
-    volumes: 
-      - ./extensions/filebeat/config/filebeat.yml:/usr/share/extensions/config/filebeat.yml:ro,Z
-      - ./testing-logs-input:/mnt/testing-logs-input:ro,Z
-    networks:
-      - elk
-
-    # - type: filestream
-    #   id: my-filestream-id
-    #   enabled: true
-    #   paths:
-    #     - C:/Users/oi/Desktop/elasticsearch-8.4.1/logs/*.log
-
-    
-  #   - type: tcp
-  #     enabled: false
-  #     host: "localhost:9000"
-
-  #   depends_on:
-  #     - elasticsearch
-
-  #   - type: stdin
-   
-  #  environment:
-
-     
-
-## =========================== 2. Abrufen von filebeats und heartbeats von cmd ===========================
-## console '''
-## $ docker-compose -f docker-compose.yml -f extensions/heartbeat/heartbeat-compose.yml -f extensions/filebeat/filebeat-compose.yml up
-## '''
-
-
 networks:
   elk:
     driver: bridge
@@ -142,3 +108,4 @@ networks:
 volumes:
   setup:
   elasticsearch:
+  
